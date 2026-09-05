@@ -206,6 +206,7 @@ class LabelingWidget(LabelDialog):
         )
         self._settings_controller = None
         self._settings_dialog = None
+        self.training_dialog = None
         self._settings_runtime_applier = SettingsRuntimeApplier(self)
         self._auto_switch_signal_connected = False
 
@@ -3327,17 +3328,25 @@ class LabelingWidget(LabelDialog):
 
     # Trainer
     def start_training(self, mode):
-        if mode == "ultralytics":
-            dialog = UltralyticsDialog(self)
-        else:
+        if mode != "ultralytics":
             return
 
         try:
-            _ = dialog.exec()
+            if self.training_dialog is None:
+                self.training_dialog = UltralyticsDialog(self)
+                self.training_dialog.destroyed.connect(
+                    self.on_training_dialog_destroyed
+                )
+            self.training_dialog.showNormal()
+            self.training_dialog.raise_()
+            self.training_dialog.activateWindow()
         except Exception as e:
             self.error_message(
                 "Start Error", f"Failed to start training dialog: {str(e)}"
             )
+
+    def on_training_dialog_destroyed(self, _dialog=None):
+        self.training_dialog = None
 
     # Tools
     def overview(self):
@@ -6160,6 +6169,11 @@ class LabelingWidget(LabelDialog):
     def closeEvent(self, event):
         if not self.may_continue():
             event.ignore()
+        if event.isAccepted() and self.training_dialog is not None:
+            if not self.training_dialog.prepare_for_application_close():
+                event.ignore()
+                return
+            self.training_dialog.close()
         if event.isAccepted() and hasattr(self, "video_classifier_window"):
             if self.video_classifier_window is not None:
                 self.video_classifier_window.close()
