@@ -263,18 +263,28 @@ def save_auto_labeling_result(self, image_file, auto_labeling_result):
                 data = json.load(f)
 
             if replace:
+                if (
+                    data["shapes"] != new_shapes
+                    or data.get("description", "") != new_description
+                ):
+                    data["checked"] = False
                 data["shapes"] = new_shapes
                 data["description"] = new_description
             else:
+                if new_shapes or new_description:
+                    data["checked"] = False
                 data["shapes"].extend(new_shapes)
                 if "description" in data:
                     data["description"] += new_description
                 else:
                     data["description"] = new_description
             if new_tags is not None:
-                data[IMAGE_TAGS_FIELD] = normalize_image_tags(
+                tags = normalize_image_tags(
                     new_tags, f"auto labeling result for {image_file}"
                 )
+                if data.get(IMAGE_TAGS_FIELD) != tags:
+                    data["checked"] = False
+                data[IMAGE_TAGS_FIELD] = tags
         else:
             if self._config["store_data"]:
                 with open(image_file, "rb") as f:
@@ -289,6 +299,7 @@ def save_auto_labeling_result(self, image_file, auto_labeling_result):
             data = {
                 "version": __version__,
                 "flags": {},
+                "checked": False,
                 "shapes": new_shapes,
                 "imagePath": image_path,
                 "imageData": image_data,

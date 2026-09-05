@@ -6879,12 +6879,16 @@ class LabelingWidget(LabelDialog):
             and auto_labeling_result.replace is False
             and not auto_labeling_result.description
         )
+        annotations_changed = bool(auto_labeling_result.shapes)
 
         # Clear existing shapes
         if auto_labeling_result.replace:
             locked_shapes = [
                 shape for shape in self.canvas.shapes if shape.locked
             ]
+            annotations_changed |= len(locked_shapes) != len(
+                self.canvas.shapes
+            )
             self.label_list.clear()
             self.load_shapes(
                 locked_shapes + auto_labeling_result.shapes, replace=True
@@ -6900,6 +6904,9 @@ class LabelingWidget(LabelDialog):
         # Set image description
         if auto_labeling_result.description:
             description = auto_labeling_result.description
+            annotations_changed |= description != self.other_data.get(
+                "description", ""
+            )
             self.shape_text_label.setText(self.tr("Image Description"))
             with QtCore.QSignalBlocker(self.shape_text_edit):
                 self.shape_text_edit.setPlainText(description)
@@ -6919,6 +6926,10 @@ class LabelingWidget(LabelDialog):
                 self.other_data[IMAGE_TAGS_FIELD] = tags
             self.image_tags_widget.set_tags(tags)
             self._auto_show_image_tags()
+
+        if annotations_changed or tags_changed:
+            self.other_data[CHECKED_FIELD] = False
+            self._sync_annotation_checked_state()
 
         if tags_changed or not tags_only_result:
             self.set_dirty()
