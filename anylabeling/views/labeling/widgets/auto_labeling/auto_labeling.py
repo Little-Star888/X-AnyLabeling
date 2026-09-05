@@ -225,6 +225,9 @@ class AutoLabelingWidget(QWidget):
         self.model_dropdown = SearchableModelDropdownPopup(model_data)
         self.model_dropdown.hide()
         self.model_dropdown.modelSelected.connect(self.on_model_selected)
+        self.model_dropdown.modelRemoveRequested.connect(
+            self.on_custom_model_remove_requested
+        )
         self.model_selection_button.setAutoDefault(False)
         self.model_selection_button.setDefault(False)
         self.model_selection_button.setStyleSheet(get_normal_button_style())
@@ -662,6 +665,31 @@ class AutoLabelingWidget(QWidget):
         self.model_selection_button.setText(config_info["display_name"])
         self.model_selection_button.setEnabled(False)
         return True
+
+    def on_custom_model_remove_requested(self, model_name):
+        models_data = self.model_dropdown.models_data
+        custom_models = models_data.get("Custom", {})
+        if (
+            model_name == "load_custom_model"
+            or model_name not in custom_models
+        ):
+            return
+        loaded_model = self.model_manager.loaded_model_config or {}
+        was_selected = custom_models[model_name].get("selected", False)
+        was_loaded = loaded_model.get("name") == model_name
+        if not self.model_manager.remove_custom_model(model_name):
+            return
+
+        del custom_models[model_name]
+        self.model_info.pop(model_name, None)
+        self.model_dropdown.save_models_data()
+        self.model_dropdown.remove_model_item(model_name)
+
+        if was_loaded or (was_selected and not loaded_model):
+            self.clear_auto_labeling_action_requested.emit()
+            self.hide_labeling_widgets()
+            self.model_selection_button.setText(self.tr("No Model"))
+            self.model_selection_button.setEnabled(True)
 
     def on_model_selected(self, provider, model_name):
         """Handle the model selected event"""
